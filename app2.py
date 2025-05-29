@@ -195,6 +195,13 @@ if 'selected_project_name' not in st.session_state:
     st.session_state.selected_project_name = None
 if 'current_view' not in st.session_state: # New session state for top navigation
     st.session_state.current_view = 'Dashboard' # Default view after login
+# NEW FLAGS FOR QUICK ACTIONS
+if 'show_add_project_form' not in st.session_state:
+    st.session_state.show_add_project_form = False
+if 'show_add_task_form' not in st.session_state:
+    st.session_state.show_add_task_form = False
+if 'filter_tasks_status' not in st.session_state:
+    st.session_state.filter_tasks_status = 'All' # Default to 'All'
 
 # --- User Authentication (Login/Register) ---
 def login_register_section():
@@ -208,6 +215,10 @@ def login_register_section():
         if st.button("Login"):
             user_id = verify_user(username, password)
             if user_id:
+                st.toast("Login successfully!", icon='🎉')
+                import time
+                time.sleep(.5)
+                st.balloons()
                 st.session_state.logged_in = True
                 st.session_state.username = username
                 st.session_state.user_id = user_id
@@ -226,6 +237,10 @@ def login_register_section():
                 registered_user_id = add_user(new_username, new_password)
                 if registered_user_id:
                     st.success("Account created successfully! Logging you in...")
+                    st.toast("Account created successfully! successfully!", icon='🎉')
+                    import time
+                    time.sleep(.5)
+                    st.balloons()
                     st.session_state.logged_in = True
                     st.session_state.username = new_username
                     st.session_state.user_id = registered_user_id
@@ -301,53 +316,79 @@ def dashboard_page_content():
 
     st.markdown("---")
     st.write("### Quick Actions")
-    # You could add specific quick actions here, e.g., 'View Overdue Tasks'
-    # For now, just a placeholder.
+    # Layout for quick action buttons
+    qa_cols = st.columns(4) # Adjust number of columns as needed
+
+    with qa_cols[0]:
+        if st.button("➕ New Project", use_container_width=True, key="qa_new_project_btn"):
+            st.session_state.current_view = 'Projects'
+            st.session_state.show_add_project_form = True # Flag to immediately show add form on Projects page
+            st.rerun()
+
+    with qa_cols[1]:
+        if st.button("➕ New Task", use_container_width=True, key="qa_new_task_btn"):
+            st.session_state.current_view = 'Tasks'
+            st.session_state.show_add_task_form = True # Flag to immediately show add form on Tasks page
+            st.rerun()
+
+    with qa_cols[2]:
+        if st.button("⚠️ View Overdue Tasks", use_container_width=True, key="qa_overdue_tasks_btn"):
+            st.session_state.current_view = 'Tasks'
+            st.session_state.filter_tasks_status = 'Overdue' # Set a filter for the tasks page
+            st.rerun()
+
+    with qa_cols[3]:
+        if st.button("📄 Generate Report", use_container_width=True, key="qa_generate_report_btn"):
+            st.session_state.current_view = 'Reports'
+            st.rerun()
+
+    # Make sure to handle `show_add_project_form`, `show_add_task_form`,
+    # and `filter_tasks_status` in your `projects_page_content()` and `tasks_page_content()`
+    # functions respectively. For example, in `tasks_page_content()`:
+    # if 'filter_tasks_status' in st.session_state and st.session_state.filter_tasks_status == 'Overdue':
+    #     # Apply filter to your tasks_df
+    #     filtered_df = tasks_df[tasks_df['Is Overdue'] == True]
+    #     # Clear the flag after use so it doesn't stick
+    #     del st.session_state.filter_tasks_status
 
 def projects_page_content():
     st.subheader(f"Your Projects, {st.session_state.username}")
 
     projects_df = get_projects_by_user(st.session_state.user_id)
 
+    # Determine initial radio button selection based on flag
+    initial_project_action_index = 0 # Default to "Add New Project"
+    if st.session_state.show_add_project_form:
+        initial_project_action_index = 0 # "Add New Project" is typically the first option (index 0)
+        st.session_state.show_add_project_form = False # CLEAR THE FLAG after acting on it
+
+
+    # Main UI for projects
     if not projects_df.empty:
         st.write("### Your Current Projects")
         st.dataframe(projects_df, use_container_width=True, hide_index=True)
 
-        # --- Filter/Sort for Projects (Example - Simple search) ---
-        st.markdown("---")
-        search_project_term = st.text_input("Search Projects by Name/Description", key="project_search_bar")
-        if search_project_term:
-            projects_df = projects_df[
-                projects_df['project_name'].str.contains(search_project_term, case=False, na=False) |
-                projects_df['description'].str.contains(search_project_term, case=False, na=False)
-            ]
-            st.dataframe(projects_df, use_container_width=True, hide_index=True)
-            if projects_df.empty:
-                st.info("No projects match your search criteria.")
-
-
         # --- Export to CSV for Projects ---
+        # This part should be moved here, inside the check for non-empty projects,
+        # so you don't offer to export an empty dataframe.
         csv_export = projects_df.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="Download Projects as CSV",
             data=csv_export,
             file_name=f"projects_data_{st.session_state.username}.csv",
             mime="text/csv",
-            key="download_projects_csv"
+            key="download_projects_csv_with_data" # Unique key (this key should be fine as it's not a form_submit_button)
         )
 
 
         st.write("### Select a Project to Manage Tasks or Edit/Delete")
         # Ensure we have options for selectbox if projects_df is filtered or empty after search
-        if not projects_df.empty:
-            selected_project_id_from_df = st.selectbox(
-                "Select Project",
-                options=projects_df['id'].tolist(),
-                format_func=lambda x: f"P{projects_df[projects_df['id'] == x]['User Project ID'].iloc[0]} - {projects_df[projects_df['id'] == x]['project_name'].iloc[0]}",
-                key="select_project_to_manage"
-            )
-        else:
-            selected_project_id_from_df = None # No project to select if df is empty
+        selected_project_id_from_df = st.selectbox(
+            "Select Project",
+            options=projects_df['id'].tolist(),
+            format_func=lambda x: f"P{projects_df[projects_df['id'] == x]['User Project ID'].iloc[0]} - {projects_df[projects_df['id'] == x]['project_name'].iloc[0]}",
+            key="select_project_to_manage"
+        )
 
         if selected_project_id_from_df:
             # Set session state for task page
@@ -357,38 +398,53 @@ def projects_page_content():
         else:
             st.session_state.selected_project_id = None
             st.session_state.selected_project_name = None
+            st.info("Please select a project to proceed with actions.")
 
 
-        # Edit/Delete Project Forms
         st.markdown("---")
-        st.write("### Add | Edit | Delete Projects")
-        project_action = st.radio("Choose action", ("Add New Project", "Edit Selected Project", "Delete Selected Project"), horizontal=True)
+        st.write("### Project Actions") # More generic title
 
+        # This is the main radio button for Add/Edit/Delete
+        project_action = st.radio(
+            "Choose action",
+            ("Add New Project", "Edit Selected Project", "Delete Selected Project"),
+            horizontal=True,
+            index=initial_project_action_index, # Use the determined index
+            key="project_action_radio_main" # UNIQUE KEY IS CRITICAL! This radio button's key is fine.
+        )
+
+        # Handle actions based on the selected radio button
         if project_action == "Add New Project":
+            # Form for adding a new project
             with st.form("add_project_form"):
-                project_name = st.text_input("Project Name (e.g., Bridge Construction Phase 1)")
-                description = st.text_area("Description")
-                start_date = st.date_input("Start Date", value=datetime.today())
-                end_date = st.date_input("End Date", value=datetime.today())
-                budget = st.number_input("Budget ($)", min_value=0.0, format="%.2f")
-                submitted = st.form_submit_button("Add Project")
+                project_name = st.text_input("Project Name (e.g., Road Resurfacing Phase A)", key="add_project_name")
+                description = st.text_area("Description", key="add_project_desc")
+                start_date = st.date_input("Start Date", value=datetime.today(), key="add_project_start_date")
+                end_date = st.date_input("End Date", value=datetime.today(), key="add_project_end_date")
+                budget = st.number_input("Budget ($)", min_value=0.0, format="%.2f", key="add_project_budget")
+                submitted = st.form_submit_button("Add Project") # REMOVED key="add_project_submit"
                 if submitted:
                     if add_project(st.session_state.user_id, project_name, description, start_date, end_date, budget):
                         st.success(f"Project '{project_name}' added!")
                         st.rerun()
+                    else:
+                        st.error("Failed to add project. Please check input.")
 
         elif project_action == "Edit Selected Project":
+            # Form for editing selected project
             if selected_project_id_from_df:
-                selected_project_data = projects_df[projects_df['id'] == selected_project_id_from_df].iloc[0]
+                project_to_edit = projects_df[projects_df['id'] == selected_project_id_from_df].iloc[0]
                 with st.form("edit_project_form"):
-                    st.write(f"Editing Project: **{selected_project_data['project_name']}**")
-                    edited_name = st.text_input("Project Name", value=selected_project_data['project_name'])
-                    edited_description = st.text_area("Description", value=selected_project_data['description'])
-                    edited_start_date = st.date_input("Start Date", value=pd.to_datetime(selected_project_data['start_date']))
-                    edited_end_date = st.date_input("End Date", value=pd.to_datetime(selected_project_data['end_date']))
-                    edited_budget = st.number_input("Budget ($)", value=float(selected_project_data['budget']), format="%.2f")
-                    submitted_edit = st.form_submit_button("Update Project")
+                    st.write(f"Editing Project: **{project_to_edit['project_name']}**")
+                    edited_name = st.text_input("Project Name", value=project_to_edit['project_name'], key="edit_project_name")
+                    edited_description = st.text_area("Description", value=project_to_edit['description'], key="edit_project_desc")
+                    # Convert string date from DB to datetime.date object for st.date_input
+                    edited_start_date = st.date_input("Start Date", value=pd.to_datetime(project_to_edit['start_date']).date(), key="edit_project_start_date")
+                    edited_end_date = st.date_input("End Date", value=pd.to_datetime(project_to_edit['end_date']).date(), key="edit_project_end_date")
+                    edited_budget = st.number_input("Budget ($)", value=float(project_to_edit['budget']), min_value=0.0, format="%.2f", key="edit_project_budget")
+                    submitted_edit = st.form_submit_button("Update Project") # REMOVED key="edit_project_submit"
                     if submitted_edit:
+                        # Call your update_project function here
                         update_project(selected_project_id_from_df, edited_name, edited_description, edited_start_date, edited_end_date, edited_budget)
                         st.success("Project updated successfully!")
                         st.rerun()
@@ -396,28 +452,39 @@ def projects_page_content():
                 st.warning("Please select a project to edit.")
 
         elif project_action == "Delete Selected Project":
+            # Section for deleting selected project
             if selected_project_id_from_df:
-                st.error(f"Deleting Project: **{projects_df[projects_df['id'] == selected_project_id_from_df]['project_name'].iloc[0]}**")
-                if st.button("Confirm Delete Project", type="secondary"):
+                project_name_to_delete = projects_df[projects_df['id'] == selected_project_id_from_df]['project_name'].iloc[0]
+                st.error(f"Deleting Project: **{project_name_to_delete}**")
+                # `st.button` is outside a form, so its `key` is fine if needed
+                if st.button("Confirm Delete Project", type="secondary", key="confirm_delete_project_btn"): # This key is likely fine.
+                    # Call your delete_project function here
                     delete_project(selected_project_id_from_df)
                     st.success("Project deleted successfully!")
                     st.rerun()
             else:
                 st.warning("Please select a project to delete.")
 
-    else:
-        st.info("You don't have any projects yet. Use the 'Add New Project' option below to create one.")
-        with st.form("add_project_form_empty"):
-                project_name = st.text_input("Project Name (e.g., Road Resurfacing Phase A)")
-                description = st.text_area("Description")
-                start_date = st.date_input("Start Date", value=datetime.today(), key="start_date_empty")
-                end_date = st.date_input("End Date", value=datetime.today(), key="end_date_empty")
-                budget = st.number_input("Budget ($)", min_value=0.0, format="%.2f", key="budget_empty")
-                submitted = st.form_submit_button("Add Project")
-                if submitted:
-                    if add_project(st.session_state.user_id, project_name, description, start_date, end_date, budget):
-                        st.success(f"Project '{project_name}' added!")
-                        st.rerun()
+
+    else: # If projects_df is empty, only show "Add New Project" form
+        st.info("You don't have any projects yet. Use the form below to create one.")
+        # This form is displayed directly as there are no existing projects to manage
+        with st.form("add_project_form_if_empty"):
+            project_name = st.text_input("Project Name (e.g., Road Resurfacing Phase A)", key="add_project_name_empty")
+            description = st.text_area("Description", key="add_project_desc_empty")
+            start_date = st.date_input("Start Date", value=datetime.today(), key="add_project_start_date_empty")
+            end_date = st.date_input("End Date", value=datetime.today(), key="end_date_empty")
+            budget = st.number_input("Budget ($)", min_value=0.0, format="%.2f", key="budget_empty")
+            submitted = st.form_submit_button("Add Project") # REMOVED key="add_project_submit_empty"
+            if submitted:
+                if add_project(st.session_state.user_id, project_name, description, start_date, end_date, budget):
+                    st.success(f"Project '{project_name}' added!")
+                    st.rerun()
+                else:
+                    st.error("Failed to add project. Please check input.")
+
+        # If projects_df is empty, no CSV to download for projects
+        # No project selection or edit/delete forms either, as there are no projects.
 
 def tasks_page_content():
     if not st.session_state.selected_project_id:
@@ -429,6 +496,22 @@ def tasks_page_content():
     tasks_df = get_tasks_by_project(st.session_state.selected_project_id)
 
     selected_task_id_from_df = None # Initialize outside conditional blocks
+
+    # Determine initial radio button selection for tasks based on flag
+    initial_task_action_index = 0 # Default to "Add New Task"
+    if st.session_state.show_add_task_form:
+        initial_task_action_index = 0 # "Add New Task" is typically the first option
+        st.session_state.show_add_task_form = False # CLEAR THE FLAG
+
+    # Determine initial filter selection based on flag
+    initial_filter_status_index = 0 # Default to 'All'
+    if st.session_state.filter_tasks_status != 'All':
+        # Find the index of the 'Overdue' option in the selectbox
+        status_options = ['All', 'Overdue', 'Not Overdue'] # Ensure this matches your selectbox options
+        if st.session_state.filter_tasks_status in status_options:
+            initial_filter_status_index = status_options.index(st.session_state.filter_tasks_status)
+        st.session_state.filter_tasks_status = 'All' # CLEAR THE FLAG after acting on it
+
 
     if not tasks_df.empty:
         st.write("### Current Tasks")
@@ -859,6 +942,8 @@ else:
         reports_page_content()
     # Add other pages here if you expand the navigation
 
+    
+
 
     # --- Optional: Sidebar for Logo and Contact Info ---
     with st.sidebar:
@@ -888,6 +973,36 @@ else:
             """,
             unsafe_allow_html=True
         )
-        st.markdown("---")
-        st.markdown("Developed by: Yusuff Olatunji Sikiru")
-        st.markdown("Version 1.0")
+        # st.markdown("---")
+        # st.markdown("Developed by: Yusuff Olatunji Sikiru")
+        # st.markdown("Version 1.0")
+
+# Adding a footer
+footer="""<style>
+a:link , a:visited{
+color: blue;
+background-color: transparent;
+text-decoration: underline;
+}
+
+a:hover,  a:active {
+color: red;
+background-color: transparent;
+text-decoration: underline;
+}
+
+.footer {
+position: fixed;
+left: 0;
+bottom: 0;
+width: 100%;
+background-color: white;
+color: black;
+text-align: center;
+}
+</style>
+<div class="footer">
+<p>Developed with ❤️ by <a style='display: inline; text-align: center;' href="https://bit.ly/atozaboutdata" target="_blank">Yusuff Olatunji Sikiru</a></p>
+</div>
+"""
+st.markdown(footer,unsafe_allow_html=True)
