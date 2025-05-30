@@ -7,7 +7,7 @@ import io # For CSV export
 import base64 # Not explicitly needed with st.download_button's data parameter
 import plotly.express as px # For visualizations
 import plotly.graph_objects as go # For more complex plots
-import pyfiglet 
+# import pyfiglet 
 
  
 
