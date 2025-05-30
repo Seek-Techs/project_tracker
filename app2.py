@@ -7,6 +7,9 @@ import io # For CSV export
 import base64 # Not explicitly needed with st.download_button's data parameter
 import plotly.express as px # For visualizations
 import plotly.graph_objects as go # For more complex plots
+import pyfiglet 
+
+ 
 
 # --- 1. Database Setup ---
 DB_NAME = 'project_tracker.db'
@@ -563,9 +566,9 @@ def tasks_page_content():
         col_filter0, col_filter1, col_filter2, col_filter3 = st.columns(4)
         # Add a new filter option
         with col_filter0: # Or a new column
-            filter_overdue = st.selectbox("Filter by Overdue", ['All', 'Overdue', 'Not Overdue'])
+            filter_overdue = st.selectbox("Filter by Overdue", ['All', 'Overdue', 'Not Overdue'], index=initial_filter_status_index, key="filter_overdue_tasks")
         with col_filter1:
-            filter_status = st.selectbox("Filter by Status", ['All'] + tasks_df['status'].unique().tolist())
+            filter_status = st.selectbox("Filter by Status", ['All'] + tasks_df['status'].unique().tolist(), key="filter_status_tasks")
         with col_filter2:
             filter_assigned_to = st.selectbox("Filter by Assignee", ['All'] + tasks_df['assigned_to'].unique().tolist())
         with col_filter3:
@@ -1002,7 +1005,7 @@ text-align: center;
 }
 </style>
 <div class="footer">
-<p>Developed with ❤️ by <a style='display: inline; text-align: center;' href="https://bit.ly/atozaboutdata" target="_blank">Yusuff Olatunji Sikiru</a></p>
+<p>Developed with ❤️ by <a style='display: inline; text-align: center;' href="(https://ceaytech.quarto.pub/" target="_blank">Yusuff Olatunji Sikiru</a></p>
 </div>
 """
 st.markdown(footer,unsafe_allow_html=True)
