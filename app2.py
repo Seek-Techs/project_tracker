@@ -398,7 +398,7 @@ def projects_page_content():
             st.session_state.selected_project_id = selected_project_id_from_df
             st.session_state.selected_project_name = projects_df[projects_df['id'] == selected_project_id_from_df]['project_name'].iloc[0]
             st.success(f"Selected project: {st.session_state.selected_project_name}. Go to 'Tasks' tab to manage it.")
-            st.markdown(f"**Selected project**: {st.session_state.selected_project_name}. Go to 'Tasks' tab to manage it.")
+            # st.markdown(f"**Selected project**: {st.session_state.selected_project_name}. Go to 'Tasks' tab to manage it.")
         else:
             st.session_state.selected_project_id = None
             st.session_state.selected_project_name = None
