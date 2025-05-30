@@ -1006,7 +1006,7 @@ text-align: center;
 }
 </style>
 <div class="footer">
-<p>Developed with ❤️ by <a style='display: inline; text-align: center;' href="(https://ceaytech.quarto.pub/" target="_blank">Yusuff Olatunji Sikiru</a></p>
+<p>Developed with ❤️ by <a style='display: inline; text-align: center;' href="https://ceaytech.quarto.pub/" target="_blank">Yusuff Olatunji Sikiru</a></p>
 </div>
 """
 st.markdown(footer,unsafe_allow_html=True)
